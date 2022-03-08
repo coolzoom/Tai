@@ -40,17 +40,8 @@ namespace UI.ViewModels
 
         public override void Dispose()
         {
-            mainServicer.OnUpdateTime -= MainServicer_OnUpdateTime;
             PropertyChanged -= IndexPageVM_PropertyChanged;
             base.Dispose();
-        }
-
-        private void MainServicer_OnUpdateTime(object sender, EventArgs e)
-        {
-            if (TabbarSelectedIndex == 1)
-            {
-                LoadThisWeekData();
-            }
         }
 
         private void Init()
@@ -63,7 +54,6 @@ namespace UI.ViewModels
             TabbarSelectedIndex = 1;
 
             PropertyChanged += IndexPageVM_PropertyChanged;
-            mainServicer.OnUpdateTime += MainServicer_OnUpdateTime;
 
             LoadThisWeekData();
         }
@@ -139,6 +129,7 @@ namespace UI.ViewModels
             foreach (var item in list)
             {
                 var bindModel = new ChartsDataModel();
+                bindModel.Data = item;
                 bindModel.Name = string.IsNullOrEmpty(item.ProcessDescription) ? item.ProcessName : item.ProcessDescription;
                 bindModel.Value = item.Time;
                 bindModel.Tag = Timer.Fromat(item.Time);

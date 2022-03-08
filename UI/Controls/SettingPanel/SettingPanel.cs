@@ -1,9 +1,12 @@
-﻿using Core.Models.Config;
+﻿using Core.Librarys;
+using Core.Models.Config;
+using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -11,6 +14,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using UI.Controls.Button;
 using UI.Controls.Input;
 using UI.Controls.List;
 
@@ -381,6 +385,8 @@ namespace UI.Controls.SettingPanel
             addInputBox.Placeholder = configAttribute.Placeholder;
             addInputBox.Margin = new Thickness(0, 0, 10, 0);
 
+
+            //添加
             var addBtn = new Button.Button();
             //addBtn.Margin = new Thickness(15, 0, 15, 10);
             addBtn.Content = "添加";
@@ -402,6 +408,99 @@ namespace UI.Controls.SettingPanel
             };
             pi.SetValue(configData, list);
 
+            IconButton moreActionBtn = new IconButton();
+            moreActionBtn.VerticalAlignment = VerticalAlignment.Center;
+            moreActionBtn.HorizontalAlignment = HorizontalAlignment.Right;
+            moreActionBtn.Margin = new Thickness(0, 5, 5, 0);
+            moreActionBtn.Icon = Base.IconTypes.More;
+
+            var moreActionMenu = new ContextMenu();
+
+            moreActionBtn.MouseLeftButtonUp += (e, c) =>
+            {
+                moreActionMenu.IsOpen = true;
+            };
+            bool isHasMoreAction = false;
+            if (configAttribute.IsCanImportExport)
+            {
+                //  允许导入导出
+                isHasMoreAction = true;
+
+                //  导入操作
+                var importMenuItem = new MenuItem();
+                importMenuItem.Header = "导入";
+                importMenuItem.Click += (e, c) =>
+                {
+                    Microsoft.Win32.OpenFileDialog ofd = new Microsoft.Win32.OpenFileDialog();
+                    ofd.Title = "选择文件";
+                    ofd.Filter = "json(*.json)|*.json";
+                    ofd.FileName = configAttribute.Name;
+
+                    bool? result = ofd.ShowDialog();
+                    if (result == true)
+                    {
+                        try
+                        {
+                            List<string> data = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(ofd.FileName));
+                            if (data == null)
+                            {
+                                MessageBox.Show("文件格式有误或者数据为空，请选择有效的导出文件。");
+                            }
+                            else
+                            {
+                                if (MessageBox.Show("导入将覆盖现有配置，确定吗？", "注意", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
+                                {
+                                    pi.SetValue(configData, data);
+                                    listControl.Items.Clear();
+                                    foreach (string item in data)
+                                    {
+                                        listControl.Items.Add(item);
+                                    }
+                                    MessageBox.Show("导入完成！", "提示");
+                                }
+                            }
+                        }catch (Exception ex)
+                        {
+                            Logger.Error($"导入配置“{configAttribute.Name}”时失败：{ex.Message}");
+                            MessageBox.Show("导入失败！", "提示");
+                        }
+                    }
+
+                };
+
+                //  导出操作
+                var exportMenuItem = new MenuItem();
+                exportMenuItem.Header = "导出";
+                exportMenuItem.Click += (e, c) =>
+                {
+                    try
+                    {
+                        Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog();
+                        sfd.Title = "选择文件";
+                        sfd.Filter = "json(*.json)|*.json";
+                        sfd.FileName = configAttribute.Name + "导出配置";
+
+                        bool? result = sfd.ShowDialog();
+                        if (result == true)
+                        {
+                            File.WriteAllText(sfd.FileName, JsonConvert.SerializeObject(listControl.Items));
+                            MessageBox.Show("导出完成", "提示");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"导出配置“{configAttribute.Name}”时失败：{ex.Message}");
+                        MessageBox.Show("导出失败！", "提示");
+                    }
+
+                };
+
+
+                moreActionMenu.Items.Add(importMenuItem);
+                moreActionMenu.Items.Add(exportMenuItem);
+            }
+
+
             var inputPanel = new Grid();
             inputPanel.ColumnDefinitions.Add(
                 new ColumnDefinition()
@@ -413,12 +512,13 @@ namespace UI.Controls.SettingPanel
                {
                    Width = new GridLength(2, GridUnitType.Star)
                });
+
             inputPanel.Margin = new Thickness(15, 10, 15, 10);
             Grid.SetColumn(addInputBox, 0);
             Grid.SetColumn(addBtn, 1);
+
             inputPanel.Children.Add(addInputBox);
             inputPanel.Children.Add(addBtn);
-
 
             //  标题和说明
 
@@ -428,7 +528,28 @@ namespace UI.Controls.SettingPanel
             description.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#989CA1"));
             var container = new StackPanel();
 
-            container.Children.Add(description);
+            var head = new Grid();
+            head.ColumnDefinitions.Add(
+                 new ColumnDefinition()
+                 {
+                     Width = new GridLength(10, GridUnitType.Star)
+                 });
+            head.ColumnDefinitions.Add(
+               new ColumnDefinition()
+               {
+                   Width = new GridLength(2, GridUnitType.Star)
+               });
+            Grid.SetColumn(description, 0);
+            head.Children.Add(description);
+
+            //  更多操作按钮
+            if (isHasMoreAction)
+            {
+                Grid.SetColumn(moreActionBtn, 1);
+                head.Children.Add(moreActionBtn);
+            }
+
+            container.Children.Add(head);
             container.Children.Add(inputPanel);
             container.Children.Add(listControl);
             return container;
